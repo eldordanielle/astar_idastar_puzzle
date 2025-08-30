@@ -1,142 +1,195 @@
-# Comparison between A* and IDA* on the 8-Puzzle Problem
+# 🧩 A* vs. IDA* on Sliding‑Tile Puzzles (8, 15, 3×4, 3×5)
 
-Laboratory project for Artificial Intelligence Search course - Comprehensive comparison between A* and IDA* algorithms with various optimizations.
+End‑to‑end, reproducible experiments comparing **A\*** and **IDA\*** on classic sliding‑tile puzzles under **Manhattan** and **Linear Conflict (LC)** heuristics, with **BPMX**, **BFS/DFS** baselines, **solvable vs. unsolvable** analysis, and an **A\* tie‑breaking ablation**.  
+All figures and appendix tables are generated from CSVs produced by a single runner.
 
-## 🎯 Project Objectives
+---
 
-Quantitative comparison between A* and IDA* algorithms on the 8-Puzzle problem, including:
-- Comparison between Manhattan Distance and Linear Conflict heuristics
-- Testing the impact of BPMX optimization on IDA*
-- Performance analysis at different depths
+## 🔎 What’s inside
 
-## 📊 Key Results
+- **A\* vs. IDA\***: time, expansions, duplicate rate, and memory proxies across depths **4…20**.  
+- **BPMX on IDA\***: ratio plots (BPMX / Plain).  
+- **BFS vs. DFS**: bookend baselines for uninformed search.  
+- **Solvable vs. Unsolvable**: cost to prove vs. disprove reachability.  
+- **A\* tie‑breaking (h/g/fifo/lifo)**: robustness check.  
+- Cross‑puzzle summary bars + appendix tables (CSV/XLSX).
 
-**Surprising Insights:**
-- A* showed better performance than IDA* on all metrics
-- BPMX significantly reduced generated nodes (41% reduction)
-- Linear Conflict improved IDA* performance at higher depths
+**Headline:** IDA\* dominates at shallow–moderate depths; A\* catches up when `CLOSED` fits (especially with LC). BPMX didn’t help in this Python setting. Unsolvables are a mid‑depth constant‑factor tax (often ≤2×), not a different growth rate. A\* is robust to tie‑breaking.
 
-## 🚀 Installation and Execution
+---
 
-### Environment Setup
+## 📁 Layout
+
+```
+src/
+  experiments/runner.py        # single entry point for all runs
+  search/                      # A*, IDA*, BPMX, BFS, DFS
+report/
+  figs/                        # generated figures (PNG)
+  tables/                      # appendix tables (CSV/XLSX)
+  *.py                         # plotting/table scripts (self-contained)
+results/                       # CSV outputs (created by the runner)
+```
+
+---
+
+## ⚙️ Setup
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate  # Windows
+git clone <YOUR-REPO-URL> astar_idastar_puzzle
+cd astar_idastar_puzzle
+
+# Optional: conda/venv
+# conda create -n astar python=3.11 -y && conda activate astar
+
 pip install -r requirements.txt
 ```
 
-### Running Experiments
+All scripts are non‑interactive; figures/tables are written to `report/figs` and `report/tables`.
+
+---
+
+## ▶️ Reproducing the data
+
+The runner accepts either `--domain p8|p15` **or** `--rows 3 --cols 4/5`.  
+Common knobs: `--algo a|ida|bfs|dfs|both`, `--heuristic manhattan|linear_conflict`, `--bpmx`, `--tie_break h|g|fifo|lifo`, `--per_depth`, `--timeout_sec`, `--include_unsolvable`.
+
+### 1) Core A* vs. IDA* (depths 4…20)
+
 ```bash
-# A* vs IDA* comparison with Manhattan
-python -m src.experiments.runner --depths 10 15 20 --per_depth 10 --algo both --heuristic manhattan --out results/mani.csv
+# P8 & P15 under both heuristics
+for H in manhattan linear_conflict; do
+  for B in p8 p15; do
+    python -m src.experiments.runner --domain $B --algo both       --heuristic $H --depths 4 6 8 10 12 14 16 18 20       --per_depth 16 --timeout_sec 30       --out results/${B}_${H}_both.csv
+  done
+done
 
-# A* vs IDA* comparison with Linear Conflict
-python -m src.experiments.runner --depths 10 15 20 --per_depth 10 --algo both --heuristic linear --out results/astar_vs_ida_linear.csv
+# Rectangles (Manhattan)
+python -m src.experiments.runner --rows 3 --cols 4 --algo both   --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20   --per_depth 16 --timeout_sec 30 --out results/r3x4_manhattan_both.csv
 
-# BPMX testing at higher depths
-python -m src.experiments.runner --depths 20 25 30 --per_depth 5 --algo ida --heuristic manhattan --bpmx --out results/ida_bpmx_deep.csv
+python -m src.experiments.runner --rows 3 --cols 5 --algo both   --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20   --per_depth 16 --timeout_sec 30 --out results/r3x5_manhattan_both.csv
 ```
 
-### Creating Graphs
+### 2) IDA* ± BPMX (example on P15)
+
 ```bash
-# Single plot
-python -m src.experiments.plot results/mani.csv
+python -m src.experiments.runner --domain p15 --algo ida --bpmx   --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20   --per_depth 16 --timeout_sec 30 --out results/p15_ida_manhattan_bpmx.csv
 
-# Comparative plot
-python -m src.experiments.plot results/ida_plain_deep.csv results/ida_bpmx_deep.csv
+python -m src.experiments.runner --domain p15 --algo ida   --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20   --per_depth 16 --timeout_sec 30 --out results/p15_ida_manhattan_plain.csv
 ```
 
-### Statistical Analysis
+### 3) BFS / DFS baselines
+
 ```bash
-python -m src.experiments.analyze
+for B in p8 p15; do
+  python -m src.experiments.runner --domain $B --algo bfs     --heuristic manhattan --depths 4 6 8 10 12 14 --per_depth 16     --timeout_sec 30 --out results/${B}_bfs.csv
+
+  python -m src.experiments.runner --domain $B --algo dfs     --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20 --per_depth 16     --dfs_max_depth 20 --timeout_sec 30 --out results/${B}_dfs.csv
+done
+
+# Rectangles analogous (bfs/dfs with --rows/--cols)
 ```
 
-## 📁 Project Structure
+### 4) Solvable vs. Unsolvable (IDA*, Manhattan)
 
-```
-astar_idastar_puzzle/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── report/                   # Laboratory report
-│   ├── report.md            # Complete report
-│   ├── outline.md           # Report outline
-│   └── appendix.md          # Code appendix
-├── results/                  # Experiment results
-│   ├── mani.csv             # A* vs IDA* Manhattan
-│   ├── astar_vs_ida_linear.csv
-│   ├── ida_plain_deep.csv   # IDA* high depths
-│   ├── ida_bpmx_deep.csv    # IDA* + BPMX
-│   └── plots/               # Generated graphs
-└── src/                     # Source code
-    ├── domains/
-    │   └── puzzle8.py       # 8-Puzzle implementation
-    ├── heuristics/
-    │   ├── manhattan.py     # Manhattan Distance
-    │   └── linear_conflict.py # Linear Conflict
-    ├── search/
-    │   ├── a_star.py        # A* implementation
-    │   └── ida_star.py      # IDA* + BPMX implementation
-    └── experiments/
-        ├── runner.py        # Experiment runner
-        ├── plot.py          # Graph generation
-        └── analyze.py       # Statistical analysis
+```bash
+for B in p8 p15; do
+  python -m src.experiments.runner --domain $B --algo ida     --heuristic manhattan --include_unsolvable     --depths 4 6 8 10 12 14 16 18 20 --per_depth 12 --timeout_sec 30     --out results/${B}_unsolv_manhattan.csv
+done
+
+python -m src.experiments.runner --rows 3 --cols 4 --algo ida   --heuristic manhattan --include_unsolvable   --depths 4 6 8 10 12 14 16 18 20 --per_depth 12 --timeout_sec 30   --out results/r3x4_unsolv_manhattan.csv
+
+python -m src.experiments.runner --rows 3 --cols 5 --algo ida   --heuristic manhattan --include_unsolvable   --depths 4 6 8 10 12 14 16 18 20 --per_depth 12 --timeout_sec 30   --out results/r3x5_unsolv_manhattan.csv
 ```
 
-## 📈 Detailed Results
+### 5) 🧪 A* tie‑breaking ablation (P15, Manhattan, depths 4…20)
 
-### A* vs IDA* Comparison (Manhattan Distance)
+```bash
+for TB in h g fifo lifo; do
+  python -m src.experiments.runner --algo astar --domain p15     --heuristic manhattan --tie_break $TB     --depths 4 6 8 10 12 14 16 18 20 --per_depth 24 --timeout_sec 60     --out results/p15_tie_${TB}.csv
+done
+```
 
-| Depth | Algorithm | Expanded | Generated | Time (ms) |
-|-------|-----------|----------|-----------|-----------|
-| 10    | A*        | 13.6     | 25.8      | 0.07      |
-| 10    | IDA*      | 15.6     | 25.2      | 0.05      |
-| 15    | A*        | 54.6     | 95.6      | 0.24      |
-| 15    | IDA*      | 96.0     | 161.8     | 0.28      |
-| 20    | A*        | 75.8     | 129.2     | 0.38      |
-| 20    | IDA*      | 255.6    | 430.2     | 0.72      |
+> Checks robustness of A\* to the OPEN queue tie‑break policy.  
+> Plots are created by `report/tie_break_plot.py` (see next section).
 
-### Linear Conflict Impact
+---
 
-Linear Conflict improved IDA* performance at depth 20:
-- Expanded ratio: 2.09 (instead of 3.37)
-- Generated ratio: 2.08 (instead of 3.33)
+## 📈 Make the figures & appendix tables
 
-### BPMX Impact
+Each script scans `results/`, aggregates (mean + SEM), and writes PNG/XLSX.
 
-BPMX showed significant improvement in generated nodes:
-- Expanded ratio: 1.00 (no difference)
-- Generated ratio: 0.59 (41% reduction!)
-- Time ratio: 1.48-2.02 (BPMX slower)
+```bash
+# A* vs. IDA* crossover & per‑board ratio grid
+python report/crossover_plots.py
 
-## 🔬 Methodology
+# BPMX impact on IDA* (grid + across‑board)
+python report/bpmx_plots.py
 
-**Instance Generation:** The `scramble` function creates instances with known solution depth
+# BFS vs. DFS (time + expansions)
+python report/bfs_dfs_grid.py
 
-**Performance Metrics:**
-- Expanded Nodes - Number of nodes expanded
-- Generated Nodes - Number of nodes generated  
-- Time - Runtime in seconds
-- Memory - Memory usage (peak_open, peak_closed)
+# Duplicates + memory proxies (two grids) + appendix XLSX
+python report/duplicates_graphs.py
 
-**Test Depths:** 10, 15, 20 (and higher depths for BPMX testing)
+# Solvable vs. Unsolvable (grid + ratio) + appendix XLSX
+python report/unsolve_plots_fix.py
 
-## 📝 Key Conclusions
+# Cross‑puzzle summary bars (geo‑mean ratio + win‑fraction)
+python report/cross_puzzle_summary.py
 
-1. **A* outperforms IDA* on small problems** - 8-Puzzle is a relatively small problem
-2. **The gap increases with depth** - At depth 20, IDA* expands 3.37x more nodes
-3. **Linear Conflict improves IDA*** - Reduces the gap at higher depths
-4. **BPMX is effective for reducing generated nodes** - 41% reduction but adds overhead
+# 🔧 A* tie‑breaking ablation (time + duplicates, depths 4..20)
+python report/tie_break_plot.py
+```
 
-## 👨‍💻 Development
+Outputs appear in:
 
-The project was developed in Python 3.x with:
-- Full type hints
-- Modular structure
-- Comprehensive documentation
-- Statistical analysis tools
+```
+report/figs/*.png
+report/tables/*.csv, *.xlsx
+```
 
-## 📚 Bibliography
+---
 
-1. Hart, P. E., Nilsson, N. J., & Raphael, B. (1968). A formal basis for the heuristic determination of minimum cost paths.
-2. Korf, R. E. (1985). Depth-first iterative-deepening: An optimal admissible tree search.
-3. Felner, A., Korf, R. E., & Hanan, S. (2004). Additive pattern database heuristics.
+## 🧵 SLURM example (optional)
+
+```bash
+#!/bin/bash
+#SBATCH --time 0-04:00:00
+#SBATCH --job-name astar_ida
+#SBATCH --output job-%J.out
+#SBATCH --mem=16G
+#SBATCH --cpus-per-task=8
+
+cd /path/to/astar_idastar_puzzle
+# conda activate astar
+
+python -m src.experiments.runner --domain p15 --algo both   --heuristic manhattan --depths 4 6 8 10 12 14 16 18 20   --per_depth 16 --timeout_sec 30 --out results/p15_manhattan_both.csv
+```
+
+> For long sweeps, shard by depth (one CSV per depth) and merge afterward—more robust to pre‑emption.
+
+---
+
+## 🧠 Tips
+
+- If a curve is missing, you likely don’t have CSVs for that (board, depth, variant).  
+- DFS: set `--dfs_max_depth` to avoid recursion blow‑ups.  
+- Error bars are **SEM** by default; change in the plotting code if you prefer 95% CI.  
+- The plotting scripts are **read‑only** on data—no re‑runs required for tables.
+
+---
+
+## 📜 License & citation
+
+Add your license here (e.g., MIT).  
+If you use this repo, please cite:
+
+> *A\* vs. IDA\* on Sliding‑Tile Puzzles*, 2025. GitHub repository.
+
+---
+
+## 🙌 Acknowledgements
+
+Course project — *Search in AI*. Thanks to the teaching staff for guidance and to peers for feedback.  
+Happy puzzling! 🧠✨
