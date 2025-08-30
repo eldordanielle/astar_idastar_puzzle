@@ -182,7 +182,6 @@ python -m src.experiments.runner --domain p15 --algo both   --heuristic manhatta
 
 ## 📜 License & citation
 
-Add your license here (e.g., MIT).  
 If you use this repo, please cite:
 
 > *A\* vs. IDA\* on Sliding‑Tile Puzzles*, 2025. GitHub repository.
@@ -191,5 +190,5 @@ If you use this repo, please cite:
 
 ## 🙌 Acknowledgements
 
-Course project — *Search in AI*. Thanks to the teaching staff for guidance and to peers for feedback.  
+Course project — *Search in AI*. Thanks to the teaching staff for guidance and an awesome opportunity.  
 Happy puzzling! 🧠✨
